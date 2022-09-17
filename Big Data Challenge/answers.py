@@ -84,46 +84,6 @@ employee_df = employee_df.withColumn("company_email", concat_ws(substring("first
 employee_df.show()
 
 
-# Creating intermediate df to solve 5) and 6)
+#5. Calculate the average salary for each job role
 
-join_df = salary_df.alias("salary").join(other=job_df.alias("job"), on="emp no", how="inner")
-join_df = join_df.select("emp no","title", "salary.`salary`","salary.`from date`","salary.`to date`")
-
-condition = (
-    F.when(F.col("to date")=="9999-01-01",F.ceil(F.datediff(F.current_date(),F.col("salary.`from date`"))/365))
-    .otherwise(F.ceil(F.datediff(F.col("salary.`to date`"),F.col("salary.`from date`"))/365))
-)
-
-join_df = join_df.withColumn("years", condition)
-
-window_employee = Window.partitionBy("emp no")
-window_role = Window.partitionBy("title")
-flag = (
-    F.col("total_employee")/F.col("years_employee") < F.col("total_role")/F.col("years_role")
-)
-
-join_df = (
-    join_df
-    .withColumn("total_employee", F.sum(F.col("salary")*F.col("years")).over(window_employee))
-    .withColumn("total_role", F.sum(F.col("salary")*F.col("years")).over(window_role))
-    .withColumn("years_employee", F.sum("years").over(window_employee))
-    .withColumn("years_role", F.sum("years").over(window_role))
-    .withColumn("flag", F.when(flag,True).otherwise(False))
-)
-
-join_df.show()
-
-
-# 5) Calculate the average salary for each job role
-
-df = join_df.groupBy("title").agg(F.sum(F.col("salary")*F.col("years")).alias("total_salary"),F.sum(F.col("years")).alias("total_years"))
-
-df = df.withColumn("avg_salary", F.col("total_salary")/F.col("total_years"))
-
-df.show()
-
-# 6) Add a flag (set value to True) in salaryData if the average salary of the person is lower than the average salary for their job role
-
-salary_df = join_df.select("salary.*", "flag")
-
-salary_df.show()
+#6. Add a flag (set value to True) in salaryData if the average salary of the person is lower than the average salary for their job role
